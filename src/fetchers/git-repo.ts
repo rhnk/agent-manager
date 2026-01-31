@@ -1,0 +1,62 @@
+import simpleGit from 'simple-git';
+import path from 'path';
+import { buildRepositoryUrl, parseGitUrl, resolveRef } from '../url-parser';
+import { clearDirectory, ensureSkillDirectory, removeDirectory } from '../file-manager';
+import { SkillConfig } from '../types';
+import { SkillManagerError, wrapError } from '../errors';
+import { ERROR_CODES } from '../constants';
+import { withRetry } from '../retry';
+import { validateFilePath } from '../validation';
+
+/**
+ * Fetch an entire Git repository
+ * @param skillName Name of the skill
+ * @param config Skill configuration
+ * @param skillsPath Base path for skills
+ * @throws SkillManagerError if fetch fails
+ */
+export async function fetchGitRepo(
+  skillName: string,
+  config: SkillConfig,
+  skillsPath: string
+): Promise<void> {
+  try {
+    const parsed = parseGitUrl(config.remote, 'GIT_REPO');
+
+    // Resolve ref with precedence: config > default
+    const ref = resolveRef(config.ref, undefined);
+
+    // Ensure skill directory exists and clear it
+    const skillDir = await ensureSkillDirectory(skillsPath, skillName);
+    await clearDirectory(skillDir);
+
+    // Validate skill directory is safe
+    validateFilePath(skillsPath, skillDir);
+
+    const git = simpleGit();
+
+    // Build repository URL from parsed components (DRY improvement)
+    const repoUrl = buildRepositoryUrl(parsed);
+
+    // Clone the repository with retry logic
+    await withRetry(
+      () => git.clone(repoUrl, skillDir, ['--depth', '1', '--branch', ref]),
+      `Cloning ${repoUrl}`,
+      { maxRetries: 3 }
+    );
+
+    // Remove .git directory to avoid nested repos and reduce size
+    const gitDir = path.join(skillDir, '.git');
+    await removeDirectory(gitDir);
+  } catch (error) {
+    if (error instanceof SkillManagerError) {
+      throw error;
+    }
+    throw wrapError(
+      error,
+      `Failed to fetch Git repository for skill "${skillName}"`,
+      ERROR_CODES.GIT_ERROR,
+      { skillName, remote: config.remote }
+    );
+  }
+}
