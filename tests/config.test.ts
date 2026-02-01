@@ -103,7 +103,7 @@ describe('Config Loader', () => {
 
       const config = await loadConfig(noPathConfigPath);
 
-      expect(config.skillsPath).toBe(path.join(os.homedir(), '.claude/skills'));
+      expect(config.skillsPath).toBe(path.join(os.homedir(), '.agents/skills'));
 
       await fs.remove(noPathConfigPath);
     });

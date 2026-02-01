@@ -1,10 +1,11 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { Config } from './types';
-import os from 'os';
+import { Config, SkillConfig } from './types';
 import { DEFAULT_SKILLS_PATH, ERROR_CODES, GIST_CONFIG, VALID_SKILL_TYPES } from './constants';
 import { SkillManagerError } from './errors';
 import { sanitizeSkillName, validateFilename, validateGistUrl, validateGitUrl } from './validation';
+import { resolveHomePath } from './utils';
+import { ConfigSchema } from './schemas';
 
 /**
  * Load and validate configuration from file
@@ -25,6 +26,15 @@ export async function loadConfig(configPath: string = 'config.json'): Promise<Co
   let configContent: string;
   try {
     configContent = await fs.readFile(resolvedPath, 'utf-8');
+
+    // Validate size to prevent DoS
+    const maxConfigSize = 10 * 1024 * 1024; // 10MB
+    if (configContent.length > maxConfigSize) {
+      throw new SkillManagerError('Config file too large (max 10MB)', ERROR_CODES.INVALID_CONFIG, {
+        configPath: resolvedPath,
+        size: configContent.length,
+      });
+    }
   } catch (error) {
     throw new SkillManagerError(
       `Failed to read config file: ${error instanceof Error ? error.message : String(error)}`,
@@ -34,9 +44,9 @@ export async function loadConfig(configPath: string = 'config.json'): Promise<Co
     );
   }
 
-  let config: any;
+  let rawConfig: unknown;
   try {
-    config = JSON.parse(configContent);
+    rawConfig = JSON.parse(configContent);
   } catch (error) {
     throw new SkillManagerError(
       `Invalid JSON in config file: ${error instanceof Error ? error.message : String(error)}`,
@@ -45,6 +55,20 @@ export async function loadConfig(configPath: string = 'config.json'): Promise<Co
       error instanceof Error ? error : undefined
     );
   }
+
+  // Validate with Zod schema
+  const parseResult = ConfigSchema.safeParse(rawConfig);
+  if (!parseResult.success) {
+    const errorMessages = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
+    throw new SkillManagerError(
+      `Invalid config structure: ${errorMessages.join(', ')}`,
+      ERROR_CODES.INVALID_CONFIG,
+      { configPath: resolvedPath, errors: errorMessages }
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const config = parseResult.data as any;
 
   // Default skillsPath if not provided
   if (!config.skillsPath) {
@@ -78,18 +102,6 @@ export async function loadConfig(configPath: string = 'config.json'): Promise<Co
   }
 
   return config as Config;
-}
-
-/**
- * Resolve home directory path (~)
- * @param filepath Path that may contain ~
- * @returns Resolved absolute path
- */
-export function resolveHomePath(filepath: string): string {
-  if (filepath.startsWith('~/') || filepath === '~') {
-    return path.join(os.homedir(), filepath.slice(1));
-  }
-  return filepath;
 }
 
 /**
@@ -163,4 +175,168 @@ export function validateSkillConfig(skillName: string, config: Record<string, an
       { skillName, refType: typeof config.ref }
     );
   }
+}
+
+/**
+ * Add a skill to the config file
+ * @param configPath Path to config file
+ * @param skillName Name of the skill
+ * @param skillConfig Skill configuration
+ * @throws SkillManagerError if operation fails
+ */
+export async function addSkillToConfig(
+  configPath: string,
+  skillName: string,
+  skillConfig: SkillConfig
+): Promise<void> {
+  try {
+    const resolvedPath = path.resolve(configPath);
+
+    // Check if config file exists
+    if (!(await fs.pathExists(resolvedPath))) {
+      throw new SkillManagerError(
+        `Config file not found: ${resolvedPath}`,
+        ERROR_CODES.CONFIG_NOT_FOUND,
+        { configPath: resolvedPath }
+      );
+    }
+
+    // Read raw config without validation to support empty skills arrays
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let config: any;
+    try {
+      const configContent = await fs.readFile(resolvedPath, 'utf-8');
+      config = JSON.parse(configContent);
+    } catch (error) {
+      throw new SkillManagerError(
+        `Failed to read config file: ${error instanceof Error ? error.message : String(error)}`,
+        ERROR_CODES.INVALID_CONFIG,
+        { configPath: resolvedPath },
+        error instanceof Error ? error : undefined
+      );
+    }
+
+    // Ensure skills array exists
+    if (!config.skills || !Array.isArray(config.skills)) {
+      config.skills = [];
+    }
+
+    // Check if skill already exists
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingSkill = config.skills.find((s: any) => Object.keys(s)[0] === skillName);
+    if (existingSkill) {
+      throw new SkillManagerError(
+        `Skill "${skillName}" already exists in config. Looking for 'skill-manager sync'?`,
+        ERROR_CODES.INVALID_CONFIG,
+        { skillName, configPath }
+      );
+    }
+
+    // Add new skill
+    config.skills.push({ [skillName]: skillConfig });
+
+    // Write back to file
+    await fs.writeFile(resolvedPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (error) {
+    if (error instanceof SkillManagerError) {
+      throw error;
+    }
+    throw new SkillManagerError(
+      `Failed to add skill to config: ${error instanceof Error ? error.message : String(error)}`,
+      ERROR_CODES.FILE_SYSTEM_ERROR,
+      { configPath, skillName },
+      error instanceof Error ? error : undefined
+    );
+  }
+}
+
+/**
+ * Remove a skill from the config file
+ * @param configPath Path to config file
+ * @param skillName Name of the skill to remove
+ * @throws SkillManagerError if operation fails
+ */
+export async function removeSkillFromConfig(configPath: string, skillName: string): Promise<void> {
+  try {
+    // Load current config
+    const config = await loadConfig(configPath);
+
+    // Find and remove skill
+    const initialLength = config.skills.length;
+    config.skills = config.skills.filter((s) => Object.keys(s)[0] !== skillName);
+
+    if (config.skills.length === initialLength) {
+      throw new SkillManagerError(
+        `Skill "${skillName}" not found in config`,
+        ERROR_CODES.INVALID_CONFIG,
+        { skillName, configPath }
+      );
+    }
+
+    // Write back to file
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (error) {
+    if (error instanceof SkillManagerError) {
+      throw error;
+    }
+    throw new SkillManagerError(
+      `Failed to remove skill from config: ${error instanceof Error ? error.message : String(error)}`,
+      ERROR_CODES.FILE_SYSTEM_ERROR,
+      { configPath, skillName },
+      error instanceof Error ? error : undefined
+    );
+  }
+}
+
+/**
+ * Update a skill in the config file
+ * @param configPath Path to config file
+ * @param skillName Name of the skill to update
+ * @param skillConfig Updated skill configuration
+ * @throws SkillManagerError if operation fails
+ */
+export async function updateSkillInConfig(
+  configPath: string,
+  skillName: string,
+  skillConfig: SkillConfig
+): Promise<void> {
+  try {
+    // Load current config
+    const config = await loadConfig(configPath);
+
+    // Find and update skill
+    const skillIndex = config.skills.findIndex((s) => Object.keys(s)[0] === skillName);
+    if (skillIndex === -1) {
+      throw new SkillManagerError(
+        `Skill "${skillName}" not found in config`,
+        ERROR_CODES.INVALID_CONFIG,
+        { skillName, configPath }
+      );
+    }
+
+    config.skills[skillIndex] = { [skillName]: skillConfig };
+
+    // Write back to file
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (error) {
+    if (error instanceof SkillManagerError) {
+      throw error;
+    }
+    throw new SkillManagerError(
+      `Failed to update skill in config: ${error instanceof Error ? error.message : String(error)}`,
+      ERROR_CODES.FILE_SYSTEM_ERROR,
+      { configPath, skillName },
+      error instanceof Error ? error : undefined
+    );
+  }
+}
+
+/**
+ * Get all skill names from config file
+ * @param configPath Path to config file
+ * @returns Array of skill names
+ */
+export async function getSkillNamesFromConfig(configPath: string): Promise<string[]> {
+  const config = await loadConfig(configPath);
+  return config.skills.map((s) => Object.keys(s)[0]);
 }

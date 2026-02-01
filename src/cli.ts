@@ -5,6 +5,9 @@ import { loadConfig } from './config';
 import { printSummary, syncSkills } from './sync';
 import { checkDependencies } from './dependency-check';
 import { ConfigPathResolver, ConfigValidator, OutputFormatter } from './cli-utils';
+import { addCommand } from './commands/add';
+import { removeCommand } from './commands/remove';
+import { listCommand } from './commands/list';
 
 const program = new Command();
 
@@ -79,6 +82,49 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command('add')
+  .description('Add a new skill to the configuration')
+  .requiredOption('--name <name>', 'Name of the skill')
+  .requiredOption('--type <type>', 'Type of skill (GIT_FILE, GIT_FOLDER, GIT_REPO, GIST)')
+  .requiredOption('--remote <url>', 'Remote URL of the skill')
+  .option('--ref <ref>', 'Git reference (branch, tag, or commit SHA)')
+  .option('--filename <filename>', 'Specific file to fetch (for GIST type)')
+  .option(
+    '--agent <agents...>',
+    'Agent(s) to link to (antigravity, claude-code, codex, cursor, gemini-cli, github-copilot)'
+  )
+  .option('-c, --config <path>', 'Path to config file')
+  .action(async (options) => {
+    await addCommand({
+      name: options.name,
+      type: options.type,
+      remote: options.remote,
+      ref: options.ref,
+      filename: options.filename,
+      agent: options.agent,
+      config: options.config,
+    });
+  });
+
+program
+  .command('remove [skillName]')
+  .alias('rm')
+  .description('Remove a skill from the configuration')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('-g, --global', 'Remove global skill (same as default)')
+  .action(removeCommand);
+
+program
+  .command('list')
+  .alias('ls')
+  .description('List all installed skills')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('-g, --global', 'List global skills (same as default)')
+  .option('-v, --verbose', 'Show detailed information')
+  .option('-a, --agent <agent>', 'Filter by agent type')
+  .action(listCommand);
 
 // If no command provided, show help
 if (!process.argv.slice(2).length) {

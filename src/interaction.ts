@@ -3,7 +3,7 @@ import readline from 'readline';
 /**
  * Prompt user for confirmation when local modifications are detected
  * Only works in interactive terminals (TTY)
- * 
+ *
  * @param skillName Name of the skill with local modifications
  * @returns Promise<boolean> True if user wants to overwrite, false to skip
  */

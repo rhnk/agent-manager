@@ -1,5 +1,6 @@
 import simpleGit from 'simple-git';
 import path from 'path';
+import fs from 'fs-extra';
 import { buildRepositoryUrl, parseGitUrl, resolveRef } from '../url-parser';
 import { clearDirectory, ensureSkillDirectory, removeDirectory } from '../file-manager';
 import { SkillConfig } from '../types';
@@ -7,7 +8,7 @@ import { SkillManagerError, wrapError } from '../errors';
 import { ERROR_CODES } from '../constants';
 import { withRetry } from '../retry';
 import { validateFilePath } from '../validation';
-import { saveMetadata, calculateContentHash } from '../metadata-manager';
+import { calculateContentHash, saveMetadata } from '../metadata-manager';
 
 /**
  * Fetch an entire Git repository
@@ -48,7 +49,9 @@ export async function fetchGitRepo(
 
     // Remove .git directory to avoid nested repos and reduce size
     const gitDir = path.join(skillDir, '.git');
-    await removeDirectory(gitDir);
+    if (await fs.pathExists(gitDir)) {
+      await removeDirectory(gitDir);
+    }
 
     // Save metadata for skip checking on next sync
     await saveMetadata(skillDir, {

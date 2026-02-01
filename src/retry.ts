@@ -55,7 +55,9 @@ function calculateBackoff(attempt: number, config: Required<RetryConfig>): numbe
 
 /**
  * Retry an async operation with exponential backoff
+ * Generic error handling wrapper
  * @param operation The async operation to retry
+ * @param operationName Name for logging
  * @param config Retry configuration
  * @returns Promise with the operation result
  */
@@ -126,4 +128,30 @@ export async function withRetryAndTimeout<T>(
   timeoutMs: number = HTTP_CONFIG.TIMEOUT
 ): Promise<T> {
   return withRetry(() => withTimeout(operation(), timeoutMs), operationName, retryConfig);
+}
+
+/**
+ * Wrapper to handle errors consistently
+ * Converts unknown errors to SkillManagerError
+ */
+export function wrapWithErrorHandling<T extends unknown[]>(
+  fn: (...args: T) => Promise<unknown>,
+  errorMessage: string,
+  errorCode: string = ERROR_CODES.FILE_SYSTEM_ERROR
+) {
+  return async (...args: T): Promise<unknown> => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      if (error instanceof SkillManagerError) {
+        throw error;
+      }
+      throw new SkillManagerError(
+        errorMessage,
+        errorCode,
+        {},
+        error instanceof Error ? error : undefined
+      );
+    }
+  };
 }

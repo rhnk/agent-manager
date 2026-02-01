@@ -1,12 +1,12 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { SkillConfig, SkipCheckResult } from './types';
-import { loadMetadata, metadataExists, calculateContentHash } from './metadata-manager';
+import { calculateContentHash, loadMetadata, metadataExists } from './metadata-manager';
 import { parseGitUrl, resolveRef } from './url-parser';
 
 /**
  * Determine if a skill sync should be skipped
- * 
+ *
  * Skip conditions:
  * 1. Skill directory exists
  * 2. Metadata file exists and is valid
@@ -15,7 +15,7 @@ import { parseGitUrl, resolveRef } from './url-parser';
  * 5. Ref matches
  * 6. Type matches
  * 7. Content hash matches (no local modifications)
- * 
+ *
  * @param skillName Name of the skill
  * @param config Skill configuration
  * @param skillsPath Base path for skills
@@ -95,7 +95,7 @@ export async function shouldSkipSync(
  * Check if config has an explicit ref specified
  * For Git types, check both config.ref and URL-embedded ref
  * For GIST, only config.ref matters (revision SHA)
- * 
+ *
  * @param config Skill configuration
  * @returns True if explicit ref is present
  */
@@ -135,7 +135,7 @@ async function hasExplicitRefInConfig(config: SkillConfig): Promise<boolean> {
 /**
  * Resolve the ref that will be used for this skill
  * Must match the logic in fetchers to ensure consistency
- * 
+ *
  * @param config Skill configuration
  * @returns Resolved ref string
  */

@@ -9,7 +9,7 @@ export const DEFAULT_SKILL_FILENAME = 'SKILL.md';
 export const METADATA_FILENAME = '.skill-manager.json';
 
 /** Default skills base path */
-export const DEFAULT_SKILLS_PATH = '~/.claude/skills';
+export const DEFAULT_SKILLS_PATH = '~/.agents/skills';
 
 /** Valid skill types */
 export const VALID_SKILL_TYPES = ['GIT_FILE', 'GIT_FOLDER', 'GIT_REPO', 'GIST'] as const;
@@ -31,7 +31,6 @@ export const TEMP_DIR_PREFIX = 'skill-manager-';
 /** File size limits (in bytes) */
 export const FILE_SIZE_LIMITS = {
   MAX_FILE_SIZE: 50 * 1024 * 1024, // 50 MB for individual files
-  MAX_REPO_SIZE: 200 * 1024 * 1024, // 200 MB for repos
 } as const;
 
 /** HTTP request configuration */
@@ -47,6 +46,7 @@ export const GITHUB_CONFIG = {
   API_URL: 'https://api.github.com',
   RAW_CONTENT_URL: 'https://raw.githubusercontent.com',
   USER_AGENT: 'skill-manager',
+  TOKEN_ENV_VAR: 'GITHUB_TOKEN', // Environment variable for GitHub token
 } as const;
 
 /** Gist configuration */

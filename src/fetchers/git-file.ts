@@ -6,7 +6,9 @@ import { SkillManagerError, wrapError } from '../errors';
 import { DEFAULT_SKILL_FILENAME, ERROR_CODES, FILE_SIZE_LIMITS } from '../constants';
 import { withRetryAndTimeout } from '../retry';
 import { validateFileSize, validateTrustedUrl } from '../validation';
-import { saveMetadata, calculateContentHash } from '../metadata-manager';
+import { calculateContentHash, saveMetadata } from '../metadata-manager';
+import { getGitHubHeaders } from '../github-auth';
+import { getAgentForUrl } from '../http-agent';
 
 /**
  * Fetch a single file from a Git repository
@@ -42,7 +44,10 @@ export async function fetchGitFile(
     validateTrustedUrl(rawUrl);
 
     // Fetch the file content with retry and timeout
-    const response = await withRetryAndTimeout(() => fetch(rawUrl), `Fetching file from ${rawUrl}`);
+    const response = await withRetryAndTimeout(
+      () => fetch(rawUrl, { headers: getGitHubHeaders(), agent: getAgentForUrl(rawUrl) }),
+      `Fetching file from ${rawUrl}`
+    );
 
     if (!response.ok) {
       throw new SkillManagerError(

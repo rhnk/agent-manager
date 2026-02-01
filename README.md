@@ -1,6 +1,6 @@
 # Skill Manager
 
-A CLI tool to sync remote Git files, folders, repositories, and Gists to local skill folders based on a configuration file.
+A CLI tool to manage and sync skills across multiple AI coding agents (Antigravity, Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot) from remote Git files, folders, repositories, and Gists.
 
 ## Features
 
@@ -9,11 +9,13 @@ A CLI tool to sync remote Git files, folders, repositories, and Gists to local s
   - **GIT_FOLDER**: Specific folder from a Git repository
   - **GIT_REPO**: Entire Git repository
   - **GIST**: GitHub Gist content
+- 🤖 Multi-agent support with automatic symlink management
 - 📌 Version pinning with Git refs (branches, tags, commit SHAs)
 - 📌 Gist revision support (pin to specific Gist versions)
 - ⚡ Smart skip checking - avoids unnecessary re-syncs
 - 🔍 Local modification detection with interactive prompts
-- 🎯 Configurable skill paths with home directory support (`~`)
+- 🎯 Centralized skill storage in `~/.agents/skills`
+- 🔗 Automatic symlink creation to agent-specific directories
 - 🚀 Works with `npx` - no global installation needed
 - 🎨 Beautiful terminal output with progress indicators
 
@@ -48,7 +50,7 @@ The tool looks for a configuration file in the following order (highest to lowes
 
 1. **`--config` flag**: Explicitly specified path
 2. **`SKILL_MANAGER_CONFIG_PATH` environment variable**: Path set in environment
-3. **Default**: `~/.claude/skill_manager_config.json`
+3. **Default**: `~/.agents/skill_manager_config.json`
 
 > **Note:** If no configuration file is found at any of these locations, the tool will display an error message with help and exit.
 
@@ -58,13 +60,14 @@ Create a configuration file with the following structure:
 
 ```json
 {
-  "skillsPath": "~/.claude/skills", // optional, default to ~/.claude/skills
+  "skillsPath": "~/.agents/skills",
   "skills": [
     {
       "my-skill": {
         "type": "GIT_FOLDER",
         "remote": "https://github.com/owner/repo/tree/main/skills/my-skill",
-        "ref": "v1.2.0"
+        "ref": "v1.2.0",
+        "agents": ["cursor", "claude-code"]
       }
     },
     {
@@ -79,7 +82,7 @@ Create a configuration file with the following structure:
 
 ### Config Schema
 
-- **skillsPath** (string, optional): Base path where skills will be synced. Supports `~` for home directory. **Defaults to `~/.claude/skills` if not specified.**
+- **skillsPath** (string, optional): Base path where skills will be synced. Supports `~` for home directory. **Defaults to `~/.agents/skills` if not specified.**
 - **skills** (array, required): Array of skill configurations.
 
 Each skill object has:
@@ -94,6 +97,21 @@ Each skill object has:
   - For GIST type only: Specific file to fetch from multi-file gists
   - Example: `"filename": "my_skill.md"`
   - If not specified, defaults to `SKILL.md`, then first `.md` file
+- **agents** (array, optional):
+  - List of agents to create symlinks for
+  - Valid values: `antigravity`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `github-copilot`
+  - If not specified, symlinks are created for all agents
+
+### Supported Agents
+
+| Agent | `--agent` Value | Global Path |
+|-------|----------------|-------------|
+| Antigravity | `antigravity` | `~/.gemini/antigravity/global_skills/` |
+| Claude Code | `claude-code` | `~/.claude/skills/` |
+| Codex | `codex` | `~/.codex/skills/` |
+| Cursor | `cursor` | `~/.cursor/skills/` |
+| Gemini CLI | `gemini-cli` | `~/.gemini/skills/` |
+| GitHub Copilot | `github-copilot` | `~/.copilot/skills/` |
 
 ### Version Ref Precedence
 
@@ -116,8 +134,61 @@ When working with Git sources, the `ref` field follows this priority:
 ```
 
 This will fetch from `v2.0.0` branch/tag, **not** `v1.0.0` from the URL.
-
 ## Usage
+
+### First-Time Setup
+
+No setup required! When you add your first skill, the config file will be automatically created at `~/.agents/skill_manager_config.json`.
+
+```bash
+# Your first command will create the config automatically
+npx skill-manager add --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
+```
+
+### Add a new skill
+
+```bash
+# Add a skill with all agents
+npx skill-manager add --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
+
+# Add a skill with specific agents
+npx skill-manager add --name jira --type GIST --remote https://gist.github.com/user/gist_id --agent cursor claude-code
+
+# Add a skill with version pinning
+npx skill-manager add --name my-skill --type GIT_REPO --remote https://github.com/owner/repo --ref v2.0.0
+
+# Add a gist with specific file and revision
+npx skill-manager add --name my-gist --type GIST --remote https://gist.github.com/user/gist_id --ref abc123 --filename custom.md
+```
+
+### List skills
+
+```bash
+# List all skills (basic view)
+npx skill-manager list
+
+# List with detailed information
+npx skill-manager ls -v
+
+# List skills for specific agent
+npx skill-manager list -a cursor
+
+# Alias
+npx skill-manager ls
+```
+
+### Remove a skill
+
+```bash
+# Interactive removal (shows selection menu)
+npx skill-manager remove
+
+# Remove by name
+npx skill-manager remove my-skill
+
+# Alias
+npx skill-manager rm my-skill
+```
 
 ### Sync all skills
 
@@ -125,12 +196,14 @@ This will fetch from `v2.0.0` branch/tag, **not** `v1.0.0` from the URL.
 npx skill-manager sync
 ```
 
-> **Default:** Uses `~/.claude/skill_manager_config.json` if no config is specified.
+> **Default:** Uses `~/.agents/skill_manager_config.json` if no config is specified.
 
 ### Use custom config file
 
 ```bash
 npx skill-manager sync --config path/to/config.json
+npx skill-manager add --name my-skill --type GIST --remote url --config path/to/config.json
+npx skill-manager list --config path/to/config.json
 ```
 
 ### Use environment variable
@@ -180,6 +253,28 @@ If local modifications are detected in a skill:
 - **Force mode**: Local changes are overwritten
 
 The tool stores metadata in `.skill-manager.json` files within each skill directory to track sync state.
+
+## How Skills Are Managed
+
+### Centralized Storage
+- All skills are downloaded to `~/.agents/skills/[skill-name]`
+- This is the single source of truth for all skill content
+
+### Symlink Management
+- After downloading, symlinks are automatically created in agent-specific directories
+- By default, symlinks are created for all supported agents
+- You can specify specific agents using the `agents` field in config or `--agent` flag
+
+### Agent Integration
+Each agent looks for skills in its own directory:
+- **Cursor**: `~/.cursor/skills/`
+- **Claude Code**: `~/.claude/skills/`
+- **Codex**: `~/.codex/skills/`
+- **Gemini CLI**: `~/.gemini/skills/`
+- **Antigravity**: `~/.gemini/antigravity/global_skills/`
+- **GitHub Copilot**: `~/.copilot/skills/`
+
+The skill-manager creates symlinks in these directories pointing to `~/.agents/skills/[skill-name]`.
 
 ## Skill Types
 

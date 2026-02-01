@@ -1,6 +1,7 @@
 import simpleGit from 'simple-git';
 import path from 'path';
 import os from 'os';
+import fs from 'fs-extra';
 import { buildRepositoryUrl, parseGitUrl, resolveRef } from '../url-parser';
 import {
   clearDirectory,
@@ -11,10 +12,9 @@ import {
 import { SkillConfig } from '../types';
 import { SkillManagerError, wrapError } from '../errors';
 import { ERROR_CODES, TEMP_DIR_PREFIX } from '../constants';
-import { v4 as uuidv4 } from 'uuid';
 import { withRetry } from '../retry';
 import { validateFilePath } from '../validation';
-import { saveMetadata, calculateContentHash } from '../metadata-manager';
+import { calculateContentHash, saveMetadata } from '../metadata-manager';
 
 /**
  * Fetch a specific folder from a Git repository
@@ -41,9 +41,20 @@ export async function fetchGitFolder(
   // Resolve ref with precedence: config > url > default
   const ref = resolveRef(config.ref, parsed.ref);
 
-  // Create temporary directory with unique UUID to prevent race conditions
-  const uniqueId = uuidv4();
-  const tempDir = path.join(os.tmpdir(), `${TEMP_DIR_PREFIX}${Date.now()}-${uniqueId}`);
+  // Create temporary directory using fs.mkdtemp for security
+  const tempBase = path.join(os.tmpdir(), TEMP_DIR_PREFIX);
+  let tempDir: string;
+
+  try {
+    tempDir = await fs.mkdtemp(tempBase);
+  } catch (error) {
+    throw new SkillManagerError(
+      'Failed to create temporary directory',
+      ERROR_CODES.FILE_SYSTEM_ERROR,
+      { tempBase },
+      error instanceof Error ? error : undefined
+    );
+  }
 
   try {
     const git = simpleGit();

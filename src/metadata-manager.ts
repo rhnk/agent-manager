@@ -2,9 +2,9 @@ import fs from 'fs-extra';
 import path from 'path';
 import crypto from 'crypto';
 import { SkillMetadata } from './types';
-import { METADATA_FILENAME } from './constants';
-import { SkillManagerError, wrapError } from './errors';
-import { ERROR_CODES } from './constants';
+import { ERROR_CODES, METADATA_FILENAME } from './constants';
+import { wrapError } from './errors';
+import { pipeline } from 'stream/promises';
 
 /**
  * Check if metadata file exists for a skill
@@ -24,7 +24,7 @@ export async function metadataExists(skillDir: string): Promise<boolean> {
 export async function loadMetadata(skillDir: string): Promise<SkillMetadata | null> {
   try {
     const metadataPath = path.join(skillDir, METADATA_FILENAME);
-    
+
     if (!(await fs.pathExists(metadataPath))) {
       return null;
     }
@@ -67,25 +67,46 @@ export async function saveMetadata(skillDir: string, metadata: SkillMetadata): P
 }
 
 /**
+ * Calculate SHA-256 hash of a single file using streaming
+ * More memory efficient for large files
+ * @param filePath Path to the file
+ * @returns SHA-256 hash string
+ */
+async function hashFile(filePath: string): Promise<string> {
+  const hash = crypto.createHash('sha256');
+  const stream = fs.createReadStream(filePath);
+
+  try {
+    await pipeline(stream, hash);
+    return hash.digest('hex');
+  } catch (error) {
+    throw wrapError(error, `Failed to hash file ${filePath}`, ERROR_CODES.FILE_SYSTEM_ERROR, {
+      filePath,
+    });
+  }
+}
+
+/**
  * Calculate SHA-256 hash of all files in a directory
  * Excludes the metadata file itself to avoid circular dependencies
+ * Uses streaming for memory efficiency
  * @param skillDir Path to skill directory
  * @returns SHA-256 hash string
  */
 export async function calculateContentHash(skillDir: string): Promise<string> {
   try {
     const hash = crypto.createHash('sha256');
-    
+
     // Get all files recursively, excluding metadata file
     const files = await getAllFiles(skillDir);
-    
+
     // Sort for deterministic hashing
     files.sort();
 
-    // Hash each file's content and path
+    // Hash each file's content and path using streaming
     for (const file of files) {
       const relativePath = path.relative(skillDir, file);
-      
+
       // Skip metadata file
       if (relativePath === METADATA_FILENAME) {
         continue;
@@ -93,10 +114,10 @@ export async function calculateContentHash(skillDir: string): Promise<string> {
 
       // Hash the file path (for structure changes)
       hash.update(relativePath);
-      
-      // Hash the file content
-      const content = await fs.readFile(file);
-      hash.update(content);
+
+      // Hash the file content using streaming
+      const fileHash = await hashFile(file);
+      hash.update(fileHash);
     }
 
     return hash.digest('hex');
@@ -117,7 +138,7 @@ export async function calculateContentHash(skillDir: string): Promise<string> {
  */
 async function getAllFiles(dir: string): Promise<string[]> {
   const files: string[] = [];
-  
+
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 

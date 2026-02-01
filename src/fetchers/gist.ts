@@ -12,7 +12,9 @@ import {
 } from '../constants';
 import { withRetryAndTimeout } from '../retry';
 import { validateFileSize, validateTrustedUrl } from '../validation';
-import { saveMetadata, calculateContentHash } from '../metadata-manager';
+import { calculateContentHash, saveMetadata } from '../metadata-manager';
+import { getGitHubHeaders } from '../github-auth';
+import { getAgentForUrl } from '../http-agent';
 
 interface GistFile {
   filename: string;
@@ -53,10 +55,8 @@ export async function fetchGist(
     const response = await withRetryAndTimeout(
       () =>
         fetch(apiUrl, {
-          headers: {
-            Accept: 'application/vnd.github.v3+json',
-            'User-Agent': GITHUB_CONFIG.USER_AGENT,
-          },
+          headers: getGitHubHeaders(),
+          agent: getAgentForUrl(apiUrl),
         }),
       `Fetching Gist ${gistId}`,
       { maxRetries: 3 }
@@ -78,7 +78,7 @@ export async function fetchGist(
     // 3. First .md file
     let targetFile: GistFile | undefined;
 
-    if (config.filename) {
+    if (config.type === 'GIST' && config.filename) {
       // Use specific filename from config
       targetFile = gist.files[config.filename];
       if (!targetFile) {

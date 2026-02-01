@@ -25,7 +25,7 @@ export class ConfigPathResolver {
     }
 
     // 3. Default path (lowest priority)
-    return path.join(os.homedir(), '.claude', 'skill_manager_config.json');
+    return path.join(os.homedir(), '.agents', 'skill_manager_config.json');
   }
 }
 
@@ -42,7 +42,7 @@ export class OutputFormatter {
     if (isDefault) {
       console.log(
         chalk.gray(
-          `Skills path: ${process.env.SKILL_MANAGER_SKILLS_PATH || '~/.claude/skills'} ${chalk.yellow('(default)')}`
+          `Skills path: ${process.env.SKILL_MANAGER_SKILLS_PATH || '~/.agents/skills'} ${chalk.yellow('(default)')}`
         )
       );
     }
@@ -71,7 +71,7 @@ export class OutputFormatter {
     console.log(
       chalk.cyan('2. Environment var:  ') + 'export SKILL_MANAGER_CONFIG_PATH=/path/to/config.json'
     );
-    console.log(chalk.cyan('3. Default location: ') + '~/.claude/skill_manager_config.json\n');
+    console.log(chalk.cyan('3. Default location: ') + '~/.agents/skill_manager_config.json\n');
   }
 
   static printError(error: Error | SkillManagerError): void {
