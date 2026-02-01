@@ -62,12 +62,27 @@ export async function fetchGitFolder(
     // Build repository URL from parsed components (DRY improvement)
     const repoUrl = buildRepositoryUrl(parsed);
 
+    // For commit SHAs, we need to clone without depth and then checkout
+    // Commit SHAs can be short (7+ chars) or full (40 for SHA-1, 64 for SHA-256)
+    const isCommitSha = /^[0-9a-fA-F]{7,}$/.test(ref);
+
     // Clone the repository with retry logic
-    await withRetry(
-      () => git.clone(repoUrl, tempDir, ['--depth', '1', '--branch', ref]),
-      `Cloning ${repoUrl}`,
-      { maxRetries: 3 }
-    );
+    // Note: Cannot use --depth with commit SHAs, only with branches/tags
+    if (isCommitSha) {
+      // For commit SHA: clone without depth restriction, then checkout
+      await withRetry(() => git.clone(repoUrl, tempDir), `Cloning ${repoUrl}`, { maxRetries: 3 });
+
+      // Checkout the specific commit
+      const repoGit = simpleGit(tempDir);
+      await repoGit.checkout(ref);
+    } else {
+      // For branches/tags: use shallow clone with --depth=1
+      await withRetry(
+        () => git.clone(repoUrl, tempDir, ['--depth', '1', '--branch', ref]),
+        `Cloning ${repoUrl}`,
+        { maxRetries: 3 }
+      );
+    }
 
     // Path to the folder within the cloned repo
     const sourcePath = path.join(tempDir, parsed.path);

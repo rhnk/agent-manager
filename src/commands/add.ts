@@ -69,12 +69,13 @@ async function rollback(state: RollbackState): Promise<void> {
 }
 
 /**
- * Add command handler
- * Adds a new skill to the configuration and creates symlinks
- * Includes rollback on failure
+ * Set command handler
+ * Adds a new skill to the configuration or updates an existing one.
+ * Also handles downloading/updating the skill and creating/updating symlinks.
+ * Includes rollback on failure.
  */
 export async function addCommand(options: AddCommandOptions): Promise<void> {
-  const spinner = ora('Adding skill...').start();
+  const spinner = ora('Setting skill...').start();
 
   const rollbackState: RollbackState = {
     configCreated: false,
@@ -202,7 +203,7 @@ export async function addCommand(options: AddCommandOptions): Promise<void> {
       rollbackState.configUpdated = true;
     }
 
-    spinner.succeed(chalk.green(`✓ Successfully added skill "${skillName}"`));
+    spinner.succeed(chalk.green(`Successfully set skill "${skillName}"`));
 
     // Display summary
     console.log(chalk.gray('\nSkill details:'));
@@ -220,7 +221,7 @@ export async function addCommand(options: AddCommandOptions): Promise<void> {
     console.log(chalk.gray(`  Linked to agents: ${targetAgents.join(', ')}`));
     console.log('');
   } catch (error) {
-    spinner.fail(chalk.red('Failed to add skill'));
+    spinner.fail(chalk.red('Failed to set skill'));
 
     // Attempt rollback
     await rollback(rollbackState);

@@ -178,7 +178,8 @@ export function validateSkillConfig(skillName: string, config: Record<string, an
 }
 
 /**
- * Add a skill to the config file
+ * Add or update a skill in the config file
+ * If the skill already exists, it will be updated. Otherwise, it will be added.
  * @param configPath Path to config file
  * @param skillName Name of the skill
  * @param skillConfig Skill configuration
@@ -223,17 +224,14 @@ export async function addSkillToConfig(
 
     // Check if skill already exists
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const existingSkill = config.skills.find((s: any) => Object.keys(s)[0] === skillName);
-    if (existingSkill) {
-      throw new SkillManagerError(
-        `Skill "${skillName}" already exists in config. Looking for 'skill-manager sync'?`,
-        ERROR_CODES.INVALID_CONFIG,
-        { skillName, configPath }
-      );
+    const existingSkillIndex = config.skills.findIndex((s: any) => Object.keys(s)[0] === skillName);
+    if (existingSkillIndex >= 0) {
+      // Update existing skill
+      config.skills[existingSkillIndex] = { [skillName]: skillConfig };
+    } else {
+      // Add new skill
+      config.skills.push({ [skillName]: skillConfig });
     }
-
-    // Add new skill
-    config.skills.push({ [skillName]: skillConfig });
 
     // Write back to file
     await fs.writeFile(resolvedPath, JSON.stringify(config, null, 2), 'utf-8');

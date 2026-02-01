@@ -1,4 +1,5 @@
-import { loadConfig, resolveHomePath, validateSkillConfig } from '../src/config';
+import { loadConfig, validateSkillConfig } from '../src/config';
+import { resolveHomePath } from '../src/utils';
 import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
@@ -117,7 +118,7 @@ describe('Config Loader', () => {
       const badConfigPath = path.join(__dirname, 'bad-config.json');
       await fs.writeJson(badConfigPath, badConfig);
 
-      await expect(loadConfig(badConfigPath)).rejects.toThrow('must include "skills" array');
+      await expect(loadConfig(badConfigPath)).rejects.toThrow('Invalid config structure');
 
       await fs.remove(badConfigPath);
     });

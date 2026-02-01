@@ -4,28 +4,67 @@ This document provides various configuration examples for different use cases.
 
 ## CLI Usage Examples
 
-### Basic sync
+### Add Command
+
 ```bash
+# Add a skill with all agents
+skill-manager add --name playwright --type GIT_FOLDER --remote https://github.com/microsoft/playwright/tree/main/skills/playwright
+
+# Add a skill with specific agents only
+skill-manager add --name jira --type GIST --remote https://gist.github.com/user/gist_id --agent cursor claude-code
+
+# Add with version pinning
+skill-manager add --name my-skill --type GIT_REPO --remote https://github.com/owner/repo --ref v2.0.0 --agent cursor
+
+# Add gist with specific file and revision
+skill-manager add --name custom-gist --type GIST --remote https://gist.github.com/user/id --ref abc123 --filename skill.md
+```
+
+### List Command
+
+```bash
+# List all skills (basic view)
+skill-manager list
+
+# List with detailed information (verbose)
+skill-manager ls -v
+
+# List skills for specific agent
+skill-manager list -a cursor
+
+# List with custom config
+skill-manager list --config ./my-config.json
+```
+
+### Remove Command
+
+```bash
+# Interactive removal (shows menu)
+skill-manager remove
+
+# Remove specific skill
+skill-manager remove jira
+
+# Remove with alias
+skill-manager rm playwright
+```
+
+### Sync Command
+
+```bash
+# Basic sync
 npx skill-manager sync
-```
 
-### Sync with custom config
-```bash
+# Sync with custom config
 npx skill-manager sync --config ./my-config.json
-```
 
-### Dry run (preview without changes)
-```bash
+# Dry run (preview without changes)
 npx skill-manager sync --dry-run
-```
 
-### Force re-sync all skills
-```bash
+# Force re-sync all skills
 npx skill-manager sync --force
-```
 
-### Force re-sync specific skills
-```bash
+# Force re-sync specific skills
 npx skill-manager sync --force jira playwright-mcp-repo
 ```
 
@@ -33,7 +72,7 @@ npx skill-manager sync --force jira playwright-mcp-repo
 
 ```json
 {
-  "skillsPath": "~/.claude/skills",
+  "skillsPath": "~/.agents/skills",
   "skills": [
     {
       "my-skill": {
@@ -45,17 +84,48 @@ npx skill-manager sync --force jira playwright-mcp-repo
 }
 ```
 
+## Multi-Agent Configuration Example
+
+```json
+{
+  "skillsPath": "~/.agents/skills",
+  "skills": [
+    {
+      "cursor-only-skill": {
+        "type": "GIT_FOLDER",
+        "remote": "https://github.com/owner/repo/tree/main/skills/my-skill",
+        "agents": ["cursor"]
+      }
+    },
+    {
+      "shared-skill": {
+        "type": "GIST",
+        "remote": "https://gist.github.com/username/gist_id",
+        "agents": ["cursor", "claude-code", "codex"]
+      }
+    },
+    {
+      "all-agents-skill": {
+        "type": "GIT_FILE",
+        "remote": "https://github.com/owner/repo/blob/main/SKILL.md"
+      }
+    }
+  ]
+}
+```
+
 ## Complete Example with All Types
 
 ```json
 {
-  "skillsPath": "~/.claude/skills",
+  "skillsPath": "~/.agents/skills",
   "skills": [
     {
       "skill-folder": {
         "type": "GIT_FOLDER",
         "remote": "https://github.com/owner/repo/tree/main/skills/my-skill",
-        "ref": "main"
+        "ref": "main",
+        "agents": ["cursor", "claude-code"]
       }
     },
     {
@@ -68,7 +138,8 @@ npx skill-manager sync --force jira playwright-mcp-repo
       "readme-file": {
         "type": "GIT_FILE",
         "remote": "https://github.com/owner/repo/blob/main/README.md",
-        "ref": "v1.0.0"
+        "ref": "v1.0.0",
+        "agents": ["cursor"]
       }
     },
     {

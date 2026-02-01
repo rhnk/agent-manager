@@ -84,8 +84,9 @@ program
   });
 
 program
-  .command('add')
-  .description('Add a new skill to the configuration')
+  .command('set')
+  .alias('add')
+  .description('Add a new skill or update an existing one')
   .requiredOption('--name <name>', 'Name of the skill')
   .requiredOption('--type <type>', 'Type of skill (GIT_FILE, GIT_FOLDER, GIT_REPO, GIST)')
   .requiredOption('--remote <url>', 'Remote URL of the skill')

@@ -21,27 +21,22 @@ A CLI tool to manage and sync skills across multiple AI coding agents (Antigravi
 
 ## Installation
 
-### Using npx (Recommended)
+> **Note:** This package is not published on the npm registry.
 
-No installation needed! Just run:
-
-```bash
-npx skill-manager sync
-```
-
-### Global Installation
+### Clone the Repository
 
 ```bash
-npm install -g skill-manager
-skill-manager sync
-```
-
-### Local Development
-
-```bash
+git clone https://github.com/rhnk/skill-manager.git
+cd skill-manager
 npm install
 npm run build
 npm link
+```
+
+Then use the command globally:
+
+```bash
+skill-manager [options] [command]
 ```
 
 ## Configuration
@@ -138,28 +133,37 @@ This will fetch from `v2.0.0` branch/tag, **not** `v1.0.0` from the URL.
 
 ### First-Time Setup
 
-No setup required! When you add your first skill, the config file will be automatically created at `~/.agents/skill_manager_config.json`.
+If you have an existing setup in the form of config.json then store it at `~/.agents/skill_manager_config.json` and start using `sync`
+
+When you add your first skill, the config file will be automatically created at `~/.agents/skill_manager_config.json`.
 
 ```bash
 # Your first command will create the config automatically
-npx skill-manager add --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
+npx skill-manager set --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
 ```
 
-### Add a new skill
+### Add or update a skill
+
+Use the `set` command to add a new skill or update an existing one:
 
 ```bash
 # Add a skill with all agents
-npx skill-manager add --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
+npx skill-manager set --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
 
 # Add a skill with specific agents
-npx skill-manager add --name jira --type GIST --remote https://gist.github.com/user/gist_id --agent cursor claude-code
+npx skill-manager set --name jira --type GIST --remote https://gist.github.com/user/gist_id --agent cursor claude-code
 
 # Add a skill with version pinning
-npx skill-manager add --name my-skill --type GIT_REPO --remote https://github.com/owner/repo --ref v2.0.0
+npx skill-manager set --name my-skill --type GIT_REPO --remote https://github.com/owner/repo --ref v2.0.0
 
 # Add a gist with specific file and revision
-npx skill-manager add --name my-gist --type GIST --remote https://gist.github.com/user/gist_id --ref abc123 --filename custom.md
+npx skill-manager set --name my-gist --type GIST --remote https://gist.github.com/user/gist_id --ref abc123 --filename custom.md
+
+# Update an existing skill with new parameters
+npx skill-manager set --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill --ref v2.0.0
 ```
+
+> **Note:** The `add` command is available as an alias for `set` for backwards compatibility: `npx skill-manager add --name my-skill ...`
 
 ### List skills
 
@@ -202,7 +206,7 @@ npx skill-manager sync
 
 ```bash
 npx skill-manager sync --config path/to/config.json
-npx skill-manager add --name my-skill --type GIST --remote url --config path/to/config.json
+npx skill-manager set --name my-skill --type GIST --remote url --config path/to/config.json
 npx skill-manager list --config path/to/config.json
 ```
 
