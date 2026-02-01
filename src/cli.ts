@@ -85,12 +85,11 @@ program
 
 program
   .command('set')
-  .alias('add')
   .description('Add a new skill or update an existing one')
   .requiredOption('--name <name>', 'Name of the skill')
-  .option('--type <type>', 'Type of skill (GIT_FILE, GIT_FOLDER, GIT_REPO, GIST) - auto-detected if not specified')
+  .option('--type <type>', 'GIT_FILE, GIT_FOLDER, GIT_REPO, GIST - auto-detected if not specified')
   .requiredOption('--remote <url>', 'Remote URL of the skill')
-  .option('--ref <ref>', 'Git reference (branch, tag, or commit SHA)')
+  .option('--ref <ref>', 'Git reference (branch, tag, or commit SHA) (Optional)')
   .option('--filename <filename>', 'Specific file to fetch (for GIST type)')
   .option(
     '--agent <agents...>',

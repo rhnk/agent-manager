@@ -39,63 +39,98 @@ Then use the command globally:
 skill-manager [options] [command]
 ```
 
-## Configuration
+## Usages
 
-The tool looks for a configuration file in the following order (highest to lowest precedence):
+### Add or update a skill
+Use the `set` command to add a new skill or update an existing one.
 
-1. **`--config` flag**: Explicitly specified path
-2. **`SKILL_MANAGER_CONFIG_PATH` environment variable**: Path set in environment
-3. **Default**: `~/.agents/skill_manager_config.json`
+```bash
+# Clone a skill
+# config automatically at `~/.agents/skill_manager_config.json`, if it is not present
+skill-manager set --name my-skill --remote https://github.com/owner/repo/tree/main/skills/my-skill
 
-> **Note:** If no configuration file is found at any of these locations, the tool will display an error message with help and exit.
+# Add a gist (auto-detected as GIST)
+skill-manager set --name my-gist --remote https://gist.github.com/user/gist_id --agent cursor claude-code
+skill-manager set --name my-gist --remote https://gist.github.com/user/gist_id --ref abc123 --filename custom.md
 
-### Config File Format
+# Add a single file (auto-detected as GIT_FILE)
+skill-manager set --name my-file --remote https://github.com/owner/repo/blob/main/path/to/file.md
 
-Create a configuration file with the following structure:
+# Add entire repository (auto-detected as GIT_REPO)
+skill-manager set --name my-repo --remote https://github.com/owner/repo
 
-```json
-{
-  "skillsPath": "~/.agents/skills",
-  "skills": [
-    {
-      "my-skill": {
-        "type": "GIT_FOLDER",
-        "remote": "https://github.com/owner/repo/tree/main/skills/my-skill",
-        "ref": "v1.2.0",
-        "agents": ["cursor", "claude-code"]
-      }
-    },
-    {
-      "jira": {
-        "type": "GIST",
-        "remote": "https://gist.github.com/joh90/54509080b47614a9218e7948497d7764"
-      }
-    }
-  ]
-}
+# Update an existing skill with new parameters
+skill-manager set --name my-skill --remote https://github.com/owner/repo/tree/main/skills/my-skill --ref v2.0.0
 ```
 
-### Config Schema
+### List skills
 
-- **skillsPath** (string, optional): Base path where skills will be synced. Supports `~` for home directory. **Defaults to `~/.agents/skills` if not specified.**
-- **skills** (array, required): Array of skill configurations.
+```bash
+# List all skills (basic view), use -v for verbose
+skill-manager ls -v
 
-Each skill object has:
+# List skills for specific agent
+skill-manager ls -a cursor
+```
 
-- **type** (string, required): One of `GIT_FILE`, `GIT_FOLDER`, `GIT_REPO`, or `GIST`
-- **remote** (string, required): URL to the remote source
-- **ref** (string, optional):
-  - For Git types: Branch name, tag, or commit SHA
-  - For GIST: Gist revision SHA (commit hash from Gist history)
-  - **Note:** If `ref` is specified in config, it takes precedence over any ref in the URL
-- **filename** (string, optional):
-  - For GIST type only: Specific file to fetch from multi-file gists
-  - Example: `"filename": "my_skill.md"`
-  - If not specified, defaults to `SKILL.md`, then first `.md` file
-- **agents** (array, optional):
-  - List of agents to create symlinks for
-  - Valid values: `antigravity`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `github-copilot`
-  - If not specified, symlinks are created for all agents
+### Remove a skill
+
+```bash
+# Interactive removal (shows selection menu)
+skill-manager rm
+
+# Remove by name
+skill-manager rm my-skill
+```
+
+### Sync all skills
+
+```bash
+skill-manager sync
+```
+
+### Command help
+
+```bash
+skill-manager help
+skill-manager [command] --help
+```
+
+### Use custom config file
+
+```bash
+skill-manager sync --config path/to/config.json
+skill-manager set --name my-skill --remote url --config path/to/config.json
+skill-manager list --config path/to/config.json
+```
+
+### Use environment variable
+
+```bash
+export SKILL_MANAGER_CONFIG_PATH=/path/to/config.json
+skill-manager sync
+skill-manager set --name my-skill --remote https://github.com/owner/repo
+```
+
+### Dry run (preview changes)
+
+```bash
+skill-manager sync --dry-run
+```
+
+### Force re-sync (ignore skip checks)
+
+Force re-sync all skills:
+
+```bash
+skill-manager sync --force
+```
+
+Force re-sync specific skills:
+
+```bash
+skill-manager sync --force skill-name1 skill-name2
+```
 
 ### Supported Agents
 
@@ -107,6 +142,8 @@ Each skill object has:
 | Cursor | `cursor` | `~/.cursor/skills/` |
 | Gemini CLI | `gemini-cli` | `~/.gemini/skills/` |
 | GitHub Copilot | `github-copilot` | `~/.copilot/skills/` |
+
+The skill-manager creates symlinks in these directories pointing to `~/.agents/skills/[skill-name]`.
 
 ### Version Ref Precedence
 
@@ -129,137 +166,6 @@ When working with Git sources, the `ref` field follows this priority:
 ```
 
 This will fetch from `v2.0.0` branch/tag, **not** `v1.0.0` from the URL.
-## Usage
-
-### First-Time Setup
-
-If you have an existing setup in the form of config.json then store it at `~/.agents/skill_manager_config.json` and start using `sync`
-
-When you add your first skill, the config file will be automatically created at `~/.agents/skill_manager_config.json`.
-
-```bash
-# Your first command will create the config automatically (type is auto-detected)
-npx skill-manager set --name my-skill --remote https://github.com/owner/repo/tree/main/skills/my-skill
-```
-
-### Add or update a skill
-
-Use the `set` command to add a new skill or update an existing one. The `--type` parameter is optional and will be auto-detected from the URL pattern:
-
-```bash
-# Add a skill with auto-detected type (recommended)
-npx skill-manager set --name my-skill --remote https://github.com/owner/repo/tree/main/skills/my-skill
-
-# Add a gist (auto-detected as GIST)
-npx skill-manager set --name jira --remote https://gist.github.com/user/gist_id --agent cursor claude-code
-
-# Add a single file (auto-detected as GIT_FILE)
-npx skill-manager set --name my-file --remote https://github.com/owner/repo/blob/main/path/to/file.md
-
-# Add entire repository (auto-detected as GIT_REPO)
-npx skill-manager set --name my-repo --remote https://github.com/owner/repo
-
-# Add with explicit type (overrides auto-detection)
-npx skill-manager set --name my-skill --type GIT_FOLDER --remote https://github.com/owner/repo/tree/main/skills/my-skill
-
-# Add a skill with version pinning
-npx skill-manager set --name my-skill --remote https://github.com/owner/repo --ref v2.0.0
-
-# Add a gist with specific file and revision
-npx skill-manager set --name my-gist --remote https://gist.github.com/user/gist_id --ref abc123 --filename custom.md
-
-# Update an existing skill with new parameters
-npx skill-manager set --name my-skill --remote https://github.com/owner/repo/tree/main/skills/my-skill --ref v2.0.0
-```
-
-**Type Auto-Detection:**
-
-The tool automatically detects the skill type from the URL:
-- URLs with `gist.github.com` → `GIST`
-- URLs with `/blob/` → `GIT_FILE`
-- URLs with `/tree/` → `GIT_FOLDER`
-- Simple repository URLs → `GIT_REPO`
-
-You can still specify `--type` explicitly if needed, but it's usually not necessary. If both are provided, the explicit type takes precedence (with a warning if they don't match).
-
-**Backward Compatibility:**
-
-Existing configuration files with explicit `type` fields will continue to work without any changes. The auto-detection is only used when adding new skills via the CLI without specifying `--type`.
-
-> **Note:** The `add` command is available as an alias for `set` for backwards compatibility: `npx skill-manager add --name my-skill ...`
-
-### List skills
-
-```bash
-# List all skills (basic view)
-npx skill-manager list
-
-# List with detailed information
-npx skill-manager ls -v
-
-# List skills for specific agent
-npx skill-manager list -a cursor
-
-# Alias
-npx skill-manager ls
-```
-
-### Remove a skill
-
-```bash
-# Interactive removal (shows selection menu)
-npx skill-manager remove
-
-# Remove by name
-npx skill-manager remove my-skill
-
-# Alias
-npx skill-manager rm my-skill
-```
-
-### Sync all skills
-
-```bash
-npx skill-manager sync
-```
-
-> **Default:** Uses `~/.agents/skill_manager_config.json` if no config is specified.
-
-### Use custom config file
-
-```bash
-npx skill-manager sync --config path/to/config.json
-npx skill-manager set --name my-skill --remote url --config path/to/config.json
-npx skill-manager list --config path/to/config.json
-```
-
-### Use environment variable
-
-```bash
-export SKILL_MANAGER_CONFIG_PATH=/path/to/config.json
-npx skill-manager sync
-npx skill-manager set --name my-skill --remote https://github.com/owner/repo
-```
-
-### Dry run (preview changes)
-
-```bash
-npx skill-manager sync --dry-run
-```
-
-### Force re-sync (ignore skip checks)
-
-Force re-sync all skills:
-
-```bash
-npx skill-manager sync --force
-```
-
-Force re-sync specific skills:
-
-```bash
-npx skill-manager sync --force skill-name1 skill-name2
-```
 
 ## Smart Skip Checking
 
@@ -293,120 +199,85 @@ The tool stores metadata in `.skill-manager.json` files within each skill direct
 - By default, symlinks are created for all supported agents
 - You can specify specific agents using the `agents` field in config or `--agent` flag
 
-### Agent Integration
-Each agent looks for skills in its own directory:
-- **Cursor**: `~/.cursor/skills/`
-- **Claude Code**: `~/.claude/skills/`
-- **Codex**: `~/.codex/skills/`
-- **Gemini CLI**: `~/.gemini/skills/`
-- **Antigravity**: `~/.gemini/antigravity/global_skills/`
-- **GitHub Copilot**: `~/.copilot/skills/`
+## Configuration
 
-The skill-manager creates symlinks in these directories pointing to `~/.agents/skills/[skill-name]`.
+The tool looks for a configuration file in the following order (highest to lowest precedence):
 
-## Skill Types
+1. **`--config` flag**: Explicitly specified path
+2. **`SKILL_MANAGER_CONFIG_PATH` environment variable**: Path set in environment
+3. **Default**: `~/.agents/skill_manager_config.json`
 
-### GIT_FILE
+> **Note:** If no configuration file is found at any of these locations, the tool will display an error message with help and exit.
 
-Downloads a single file from a Git repository and saves it as `SKILL.md` in the skill folder.
+### Config File Format
+
+Create a configuration file with the following structure:
 
 ```json
 {
-  "skill-name": {
-    "type": "GIT_FILE",
-    "remote": "https://github.com/owner/repo/blob/main/path/to/file.md",
-    "ref": "v1.0.0" // optional, if specified it will override path in above remote URL
-  }
+  "skillsPath": "~/.agents/skills",
+  "skills": [
+    // Downloads a specific file and saves as SKILL.md in skill folder
+    {
+      "skill-name": {
+        "type": "GIT_FILE",
+        "remote": "https://github.com/owner/repo/blob/main/path/to/file.md",
+        "ref": "v1.0.0", // optional, if specified it will override path in above remote URL
+        "agents": ["cursor", "claude-code"]
+      }
+    },
+    // Clones a repository and copies a specific folder to the skill folder.
+    {
+      "skill-name": {
+        "type": "GIT_FOLDER",
+        "remote": "https://github.com/owner/repo/tree/main/path/to/folder",
+        "ref": "main" // optional, if specified it will override path in above remote URL
+      }
+    },
+    // Clones an entire Git repository to the skill folder (without `.git` directory).
+    {
+      "skill-name": {
+        "type": "GIT_REPO",
+        "remote": "https://github.com/owner/repo",
+        "ref": "v2.0.0" // optional, defaults to main
+      }
+    },
+    {
+      "skill-name": {
+        "type": "GIST",
+        "remote": "https://gist.github.com/username/gist_id",
+        "ref": "abc123def456",
+        "filename": "custom_skill.md"
+      }
+    }
+    // The tool will look for files in this order:
+    // 1. `SKILL.md` if it exists in the gist
+    // 2. First `.md` file in the gist
+  ]
 }
 ```
 
-### GIT_FOLDER
+### Config Schema
 
-Clones a repository and copies a specific folder to the skill folder.
+- **skillsPath** (string, optional): Base path where skills will be synced. Supports `~` for home directory. **Defaults to `~/.agents/skills` if not specified.**
+- **skills** (array, required): Array of skill configurations.
 
-```json
-{
-  "skill-name": {
-    "type": "GIT_FOLDER",
-    "remote": "https://github.com/owner/repo/tree/main/path/to/folder",
-    "ref": "main" // optional, if specified it will override path in above remote URL
-  }
-}
-```
+Each skill object has:
 
-### GIT_REPO
-
-Clones an entire Git repository to the skill folder (without `.git` directory).
-
-```json
-{
-  "skill-name": {
-    "type": "GIT_REPO",
-    "remote": "https://github.com/owner/repo",
-    "ref": "v2.0.0" // optional, defaults to main
-  }
-}
-```
-
-### GIST
-
-Fetches a GitHub Gist and saves the content as `SKILL.md` in the skill folder.
-
-**Basic usage:**
-
-```json
-{
-  "skill-name": {
-    "type": "GIST",
-    "remote": "https://gist.github.com/username/gist_id"
-  }
-}
-```
-
-The tool will look for files in this order:
-
-1. `SKILL.md` if it exists in the gist
-2. First `.md` file in the gist
-
-**With specific revision and file:**
-
-```json
-{
-  "skill-name": {
-    "type": "GIST",
-    "remote": "https://gist.github.com/username/gist_id",
-    "ref": "abc123def456",
-    "filename": "custom_skill.md"
-  }
-}
-```
-
-**With specific filename (for multi-file gists):**
-
-```json
-{
-  "skill-name": {
-    "type": "GIST",
-    "remote": "https://gist.github.com/username/gist_id",
-    "filename": "my_skill.md"
-  }
-}
-```
-
-**With both revision and filename:**
-
-```json
-{
-  "skill-name": {
-    "type": "GIST",
-    "remote": "https://gist.github.com/username/gist_id",
-    "ref": "abc123def456",
-    "filename": "custom_skill.md"
-  }
-}
-```
-
-> **Note:** To find a Gist revision SHA, go to the Gist page on GitHub, click "Revisions" at the top right, and copy the commit hash from the history.
+- **type** (string, required): One of `GIT_FILE`, `GIT_FOLDER`, `GIT_REPO`, or `GIST`
+- **remote** (string, required): URL to the remote source
+- **ref** (string, optional):
+  - For Git types: Branch name, tag, or commit SHA
+  - For GIST: Gist revision SHA (commit hash from Gist history)
+  - **Note:** If `ref` is specified in config, it takes precedence over any ref in the URL
+- **filename** (string, optional):
+  - For GIST type only: Specific file to fetch from multi-file gists
+  - Example: `"filename": "my_skill.md"`
+  - If not specified, defaults to `SKILL.md`, then first `.md` file
+- **agents** (array, optional):
+  - List of agents to create symlinks for
+  - Valid values: `antigravity`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `github-copilot`
+  - If not specified, symlinks are created for all agents
 
 ## Development
 
@@ -420,12 +291,6 @@ npm run build
 
 ```bash
 npm test
-```
-
-### Watch Mode
-
-```bash
-npm run dev
 ```
 
 ## Requirements
